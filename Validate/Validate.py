@@ -1,4 +1,4 @@
-import re
+import networkx as nx
 
 def validate_solution(solutionFile, SFCGraphs, PHYGraph):
     # Đọc file kết quả và lấy giá trị các biến
