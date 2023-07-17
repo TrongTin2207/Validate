@@ -12,25 +12,23 @@ def validate_solution(solutionFile, SFCGraphs, PHYGraph):
     phiNode = solution['phiNode']
     phiSFC = solution['phiSFC']
     
-    # Kiểm tra các giá trị đọc được có thoả mãn 5 constrains hay không
-    # Constraint 1: Tất cả các liên kết VW của SFC phải được đặt tại một liên kết IJ
-    for sfc in phiLink.keys():
-        for vw, ij in phiLink[sfc].items():
-            if ij not in PHYGraph.edges:
-                return False
-    
-    # Constraint 2: Tất cả các VNF của SFC phải được đặt tại một nút I
+    # Kiểm tra ràng buộc 1: Tổng tài nguyên yêu cầu tại một nút vật lí không vượt quá tổng tài nguyên có sẵn tại nút vật lí đó
     for sfc in phiNode.keys():
         for v, i in phiNode[sfc].items():
-            if i not in PHYGraph.nodes:
+            required_capacity = SFCGraphs[sfc].nodes[v]['capacity']
+            available_capacity = PHYGraph.nodes[i]['capacity']
+            if required_capacity > available_capacity:
                 return False
     
-    # Constraint 3: Mỗi SFC phải được map vào mạng vật lý
-    for sfc in phiSFC.keys():
-        if phiSFC[sfc] not in PHYGraph.nodes:
-            return False
+    # Kiểm tra ràng buộc 2: Tổng tài nguyên yêu cầu tại một liên kết vật lí không vượt quá tổng tài nguyên mà nút vật lí đó có
+    for sfc in phiLink.keys():
+        for vw, ij in phiLink[sfc].items():
+            required_weight = SFCGraphs[sfc].edges[vw]['weight']
+            available_weight = PHYGraph.edges[ij]['weight']
+            if required_weight > available_weight:
+                return False
     
-    # Constraint 4: Mỗi nút I chỉ được đặt một VNF của cùng một SFC
+    # Kiểm tra ràng buộc 3: Mỗi nút vật lí chỉ chứa tối đa một VNF của một SFC
     for sfc in phiNode.keys():
         used_nodes = set()
         for v, i in phiNode[sfc].items():
@@ -38,13 +36,22 @@ def validate_solution(solutionFile, SFCGraphs, PHYGraph):
                 return False
             used_nodes.add(i)
     
-    # Constraint 5: Mỗi liên kết IJ chỉ được đặt một liên kết VW của cùng một SFC
-    for sfc in phiLink.keys():
-        used_edges = set()
-        for vw, ij in phiLink[sfc].items():
-            if ij in used_edges:
+    # Kiểm tra ràng buộc 4: Mỗi VNF của mỗi SFC đều được chứa trong một nút vật lí
+    for sfc in phiNode.keys():
+        for v in SFCGraphs[sfc].nodes:
+            found = False
+            for i in phiNode[sfc].values():
+                if v in phiNode[sfc] and phiNode[sfc][v] == i:
+                    found = True
+                    break
+            if not found:
                 return False
-            used_edges.add(ij)
     
-    # Nếu tất cả các constrains đều thoả mãn, trả về True
+    # Kiểm tra ràng buộc 5: Mọi SFC đều được bảo toàn về chiều dịch vụ
+    for sfc in phiSFC.keys():
+        for neighbor in SFCGraphs[sfc].predecessors(sfc):
+            if neighbor not in phiSFC.keys():
+                return False
+    
+    # Nếu tất cả các ràng buộc đều thoả mãn, trả về True
     return True
